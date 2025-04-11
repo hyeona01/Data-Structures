@@ -84,7 +84,41 @@ int main()
 
 void moveOddItemsToBack(LinkedList *ll)
 {
-	/* add your code here */
+	ListNode *prev = NULL;
+	ListNode *cur = ll->head;
+	ListNode *tail = ll->head;
+
+	// tail을 리스트 끝으로 이동
+	while (tail->next != NULL)
+		tail = tail->next;
+
+	int size = ll->size;
+
+	for (int i = 0; i < size; i++)
+	{
+		if (cur->item % 2 == 1)
+		{
+			ListNode *next = cur->next;
+
+			if (cur == ll->head) // 헤드 노드 처리
+				ll->head = next;
+
+			else if (prev != NULL) // 헤드 노드가 아니라면
+				prev->next = next;
+
+			cur->next = NULL; // 끝에 추가하기 위해 노드 연결 끊기
+			tail->next = cur; // 끝에 추가
+			tail = cur;				// 끝 노드 업데이트
+			cur = next;
+		}
+		else // 짝수면 다음으로 이동
+		{
+			prev = cur;
+			cur = cur->next;
+		}
+	}
+	/* ---- use method ---- */
+	/*
 	ListNode *cur = ll->head;
 	int index = 0;
 
@@ -102,6 +136,7 @@ void moveOddItemsToBack(LinkedList *ll)
 			cur = cur->next;
 		}
 	}
+	*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
