@@ -88,7 +88,48 @@ int main()
 
 int insertSortedLL(LinkedList *ll, int item)
 {
-	/* add your code here */
+	int index = 0; // 마지막에 반환될 인덱스
+	ListNode *cur = ll->head;
+	// 새로운 원소가 위치할 자리가 0 인덱스일 경우
+	if (cur == NULL || cur->item > item)
+	{
+		ListNode *newNode = (ListNode *)malloc(sizeof(ListNode));
+		newNode->item = item;
+		newNode->next = ll->head; // 기존 노드와 연결
+		ll->head = newNode;				// 메모리 동적 할당
+
+		return index;
+	}
+
+	// 새로운 원소가 중간 혹은 끝에 위치할 경우
+	ListNode *prev = cur;
+	while (cur != NULL && cur->item < item)
+	{
+		prev = cur;
+		cur = cur->next;
+		index++;
+	}
+	// 마지막 원소에 추가될 경우
+	if (cur == NULL)
+	{
+		prev->next = (ListNode *)malloc(sizeof(ListNode));
+		prev->next->item = item;
+		prev->next->next = NULL;
+		ll->size++;
+		return index;
+	}
+	// 중간에 추가될 경우
+	else
+	{
+		ListNode *temp = cur; // 이후에 추가된 원소의 next로 붙여줘야 함
+		prev->next = (ListNode *)malloc(sizeof(ListNode));
+		prev->next->item = item;
+		prev->next->next = temp;
+		ll->size++;
+		return index;
+	}
+	/* ---- use method ---- */
+	/*
 	ListNode *cur = ll->head; // head 부터, 새로 추가될 아이템과 비교할 노드
 	int index = 0;
 
@@ -107,6 +148,7 @@ int insertSortedLL(LinkedList *ll, int item)
 
 	insertNode(ll, index + 1, item); // 다음 위치에 삽입
 	return index + 1;
+	*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
