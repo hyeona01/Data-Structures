@@ -16,32 +16,32 @@ typedef struct _listnode
 {
 	int item;
 	struct _listnode *next;
-} ListNode;	// You should not change the definition of ListNode
+} ListNode; // You should not change the definition of ListNode
 
 typedef struct _linkedlist
 {
 	int size;
 	ListNode *head;
-} LinkedList;	// You should not change the definition of LinkedList
+} LinkedList; // You should not change the definition of LinkedList
 
 typedef struct _stack
 {
 	LinkedList ll;
-}Stack;  // You should not change the definition of Stack
+} Stack; // You should not change the definition of Stack
 
 ///////////////////////// function prototypes ////////////////////////////////////
 
 // You should not change the prototypes of these functions
-void createStackFromLinkedList(LinkedList *ll , Stack *stack);
+void createStackFromLinkedList(LinkedList *ll, Stack *stack);
 void removeEvenValues(Stack *s);
 
-void push(Stack *s , int item);
+void push(Stack *s, int item);
 int pop(Stack *s);
 int isEmptyStack(Stack *s);
 void removeAllItemsFromStack(Stack *s);
 
 void printList(LinkedList *ll);
-ListNode * findNode(LinkedList *ll, int index);
+ListNode *findNode(LinkedList *ll, int index);
 int insertNode(LinkedList *ll, int index, int value);
 int removeNode(LinkedList *ll, int index);
 void removeAllItems(LinkedList *ll);
@@ -102,23 +102,64 @@ int main()
 			printf("Choice unknown;\n");
 			break;
 		}
-
 	}
 
 	return 0;
 }
 
-
 //////////////////////////////////////////////////////////////////////////////////
 
 void createStackFromLinkedList(LinkedList *ll, Stack *s)
 {
-    /* add your code here */
+	/* add your code here */
+	ListNode *cur = ll->head;
+	LinkedList *stack = &(s->ll);
+	stack->head = NULL;
+	stack->size = 0;
+
+	while (cur != NULL)
+	{
+		ListNode *temp = (ListNode *)malloc(sizeof(ListNode));
+		temp->item = cur->item;
+
+		temp->next = stack->head;
+		stack->head = temp;
+
+		stack->size++;
+		cur = cur->next;
+	}
 }
 
 void removeEvenValues(Stack *s)
 {
-	/* add your code here */
+	LinkedList *stack = &(s->ll);
+	ListNode *cur = stack->head;
+	ListNode *prev = NULL;
+
+	while (cur != NULL)
+	{
+		if (cur->item % 2 == 0) // 짝수
+		{
+			if (prev == NULL)
+			{
+				stack->head = cur->next; // cur 참조 해제
+				free(cur);
+				cur = stack->head;
+			}
+			else
+			{
+				prev->next = cur->next; // next로 연결
+				free(cur);
+				cur = prev->next;
+			}
+			stack->size--;
+		}
+		else
+		{
+			prev = cur;
+			cur = cur->next;
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +190,6 @@ int isEmptyStack(Stack *s)
 		return 0;
 }
 
-
 void removeAllItemsFromStack(Stack *s)
 {
 	if (s == NULL)
@@ -162,8 +202,8 @@ void removeAllItemsFromStack(Stack *s)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-
-void printList(LinkedList *ll){
+void printList(LinkedList *ll)
+{
 
 	ListNode *cur;
 	if (ll == NULL)
@@ -179,13 +219,13 @@ void printList(LinkedList *ll){
 	printf("\n");
 }
 
-
 void removeAllItems(LinkedList *ll)
 {
 	ListNode *cur = ll->head;
 	ListNode *tmp;
 
-	while (cur != NULL){
+	while (cur != NULL)
+	{
 		tmp = cur->next;
 		free(cur);
 		cur = tmp;
@@ -194,8 +234,8 @@ void removeAllItems(LinkedList *ll)
 	ll->size = 0;
 }
 
-
-ListNode * findNode(LinkedList *ll, int index){
+ListNode *findNode(LinkedList *ll, int index)
+{
 
 	ListNode *temp;
 
@@ -207,7 +247,8 @@ ListNode * findNode(LinkedList *ll, int index){
 	if (temp == NULL || index < 0)
 		return NULL;
 
-	while (index > 0){
+	while (index > 0)
+	{
 		temp = temp->next;
 		if (temp == NULL)
 			return NULL;
@@ -217,7 +258,8 @@ ListNode * findNode(LinkedList *ll, int index){
 	return temp;
 }
 
-int insertNode(LinkedList *ll, int index, int value){
+int insertNode(LinkedList *ll, int index, int value)
+{
 
 	ListNode *pre, *cur;
 
@@ -225,7 +267,8 @@ int insertNode(LinkedList *ll, int index, int value){
 		return -1;
 
 	// If empty list or inserting first node, need to update head pointer
-	if (ll->head == NULL || index == 0){
+	if (ll->head == NULL || index == 0)
+	{
 		cur = ll->head;
 		ll->head = malloc(sizeof(ListNode));
 		if (ll->head == NULL)
@@ -238,10 +281,10 @@ int insertNode(LinkedList *ll, int index, int value){
 		return 0;
 	}
 
-
 	// Find the nodes before and at the target position
 	// Create a new node and reconnect the links
-	if ((pre = findNode(ll, index - 1)) != NULL){
+	if ((pre = findNode(ll, index - 1)) != NULL)
+	{
 		cur = pre->next;
 		pre->next = malloc(sizeof(ListNode));
 		if (pre->next == NULL)
@@ -257,8 +300,8 @@ int insertNode(LinkedList *ll, int index, int value){
 	return -1;
 }
 
-
-int removeNode(LinkedList *ll, int index){
+int removeNode(LinkedList *ll, int index)
+{
 
 	ListNode *pre, *cur;
 
@@ -267,7 +310,8 @@ int removeNode(LinkedList *ll, int index){
 		return -1;
 
 	// If removing first node, need to update head pointer
-	if (index == 0){
+	if (index == 0)
+	{
 		cur = ll->head->next;
 		free(ll->head);
 		ll->head = cur;
@@ -277,7 +321,8 @@ int removeNode(LinkedList *ll, int index){
 
 	// Find the nodes before and after the target position
 	// Free the target node and reconnect the links
-	if ((pre = findNode(ll, index - 1)) != NULL){
+	if ((pre = findNode(ll, index - 1)) != NULL)
+	{
 
 		if (pre->next == NULL)
 			return -1;

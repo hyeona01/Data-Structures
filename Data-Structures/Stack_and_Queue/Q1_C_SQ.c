@@ -138,7 +138,34 @@ void createQueueFromLinkedList(LinkedList *ll, Queue *q)
 
 void removeOddValues(Queue *q)
 {
-	/* add your code here */
+	LinkedList *queue = &(q->ll);
+	ListNode *cur = queue->head;
+	ListNode *prev = NULL;
+
+	while (cur != NULL)
+	{
+		if (cur->item % 2 == 1) // 홀수
+		{
+			if (prev == NULL) // head 노드
+			{
+				queue->head = cur->next;
+				free(cur); // 노드 삭제
+				cur = queue->head;
+			}
+			else
+			{
+				prev->next = cur->next;
+				free(cur);
+				cur = prev->next;
+			}
+			queue->size--;
+		}
+		else // 홀수가 아닌 경우 패스
+		{
+			prev = cur;
+			cur = cur->next;
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////
