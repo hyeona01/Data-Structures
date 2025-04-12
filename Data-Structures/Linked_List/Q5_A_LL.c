@@ -102,7 +102,7 @@ int main()
 
 void frontBackSplitLinkedList(LinkedList *ll, LinkedList *resultFrontList, LinkedList *resultBackList)
 {
-	int splitIndex = ll->size / 2 + 1; // 여기부터는 backList
+	int splitIndex = (ll->size + 1) / 2; // 여기부터는 backList
 
 	// 나뉘는 지점의 노드 찾기
 	ListNode *splitNode = ll->head;

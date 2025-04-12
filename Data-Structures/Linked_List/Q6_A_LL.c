@@ -89,10 +89,11 @@ int moveMaxToFront(ListNode **ptrHead)
 	ListNode *cur = head;			 // 헤드와 다음 노드를 비교하면서 시작
 	ListNode *maxPrev = NULL;
 	ListNode *max = head; // max 노드를 담음
+	ListNode *next;
 
 	while (cur->next != NULL) // 모든 노드에서 max 값을 찾음
 	{
-		ListNode *next = cur->next;
+		next = cur->next;
 		if (max->item < cur->next->item)
 		{
 			max = cur->next;
@@ -104,7 +105,7 @@ int moveMaxToFront(ListNode **ptrHead)
 	// 큰 값을 head로 옮김
 	if (maxPrev == NULL)
 		return 0; // 이미 head가 max
-	ListNode *next = max->next;
+	next = max->next;
 	maxPrev->next = next;
 
 	max->next = head; // head 포인터의 주소 값을 max의 주소값으로

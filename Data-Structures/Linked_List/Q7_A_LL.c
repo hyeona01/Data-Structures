@@ -85,13 +85,14 @@ int main()
 void RecursiveReverse(ListNode **ptrHead)
 {
 	ListNode *head = *ptrHead;
+	ListNode *tail;
 
 	// base case: 비어있거나 하나 남았다면
 	if (head == NULL || head->next == NULL)
 		return;
 
 	// 재귀 호출, 나머지 리스트를 뒤집음
-	ListNode *tail = head->next; // 끝 노드 저장
+	tail = head->next; // 끝 노드 저장
 	RecursiveReverse(&tail);
 
 	// 연결을 뒤집음
