@@ -96,21 +96,40 @@ void preOrderIterative(BSTNode *root)
 	stack->top = NULL;
 
 	BSTNode *cur = root;
+	push(stack, cur);
 
-	while (cur != NULL || !isEmpty(stack))
+	while (!isEmpty(stack))
 	{
-		// 왼쪽 자식 전부 push
-		while (cur != NULL)
-		{
-			push(stack, cur);
-			printf("%d ", cur->item); // 부모노드 방문
-			cur = cur->left;
-		}
-
-		// 오른쪽 자식 순회
 		cur = pop(stack);
-		cur = cur->right;
+		printf("%d ", cur->item); // 부모 노드 방문
+
+		if (cur->right) // 오른쪽 자식 나중에 방문
+			push(stack, cur->right);
+		if (cur->left) // 왼쪽 자식 우선 방문
+			push(stack, cur->left);
 	}
+
+	/* -- ver 1 --
+Stack *stack = (Stack *)malloc(sizeof(Stack));
+stack->top = NULL;
+
+BSTNode *cur = root;
+
+while (cur != NULL || !isEmpty(stack))
+{
+	// 왼쪽 자식 전부 push
+	while (cur != NULL)
+	{
+		push(stack, cur);
+		printf("%d ", cur->item); // 부모노드 방문
+		cur = cur->left;
+	}
+
+	// 오른쪽 자식 순회
+	cur = pop(stack);
+	cur = cur->right;
+}
+*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
