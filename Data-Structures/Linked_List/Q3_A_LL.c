@@ -81,34 +81,37 @@ int main()
 }
 
 //////////////////////////////////////////////////////////////////////////////////
-
 void moveOddItemsToBack(LinkedList *ll)
 {
+	if (ll == NULL || ll->head == NULL)
+		return;
+
 	ListNode *prev = NULL;
 	ListNode *cur = ll->head;
-	ListNode *tail = ll->head;
 
-	// tail을 리스트 끝으로 이동
+	// tail을 원래 리스트 끝으로 이동
+	ListNode *tail = ll->head;
 	while (tail->next != NULL)
 		tail = tail->next;
+	ListNode *last = tail;
 
-	int size = ll->size;
+	int size = ll->size; // 반복 제한
 
-	for (int i = 0; i < size; i++)
+	while (cur != last->next)
 	{
-		if (cur->item % 2 == 1)
+		if (cur->item % 2 != 0) // 홀수라면
 		{
 			ListNode *next = cur->next;
 
 			if (cur == ll->head) // 헤드 노드 처리
 				ll->head = next;
-
 			else if (prev != NULL) // 헤드 노드가 아니라면
 				prev->next = next;
 
 			cur->next = NULL; // 끝에 추가하기 위해 노드 연결 끊기
 			tail->next = cur; // 끝에 추가
 			tail = cur;				// 끝 노드 업데이트
+
 			cur = next;
 		}
 		else // 짝수면 다음으로 이동
@@ -117,27 +120,27 @@ void moveOddItemsToBack(LinkedList *ll)
 			cur = cur->next;
 		}
 	}
-	/* ---- use method ---- */
-	/*
-	ListNode *cur = ll->head;
-	int index = 0;
-
-	for (int i = 0; i < ll->size; i++)
-	{
-		if (cur->item % 2 == 1) // 홀수라면 뒤로 보내기
-		{
-			insertNode(ll, ll->size, cur->item); // 1. 뒤에 추가
-			cur = cur->next;
-			removeNode(ll, index); // 2. 기존 위치 원소 삭제
-		}
-		else
-		{
-			index++; // 짝수라면 다음 인덱스를 검사하기 위해 index 증가
-			cur = cur->next;
-		}
-	}
-	*/
 }
+/* ---- use method ---- */
+/*
+ListNode *cur = ll->head;
+int index = 0;
+
+for (int i = 0; i < ll->size; i++)
+{
+	if (cur->item % 2 == 1) // 홀수라면 뒤로 보내기
+	{
+		insertNode(ll, ll->size, cur->item); // 1. 뒤에 추가
+		cur = cur->next;
+		removeNode(ll, index); // 2. 기존 위치 원소 삭제
+	}
+	else
+	{
+		index++; // 짝수라면 다음 인덱스를 검사하기 위해 index 증가
+		cur = cur->next;
+	}
+}
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////
 
