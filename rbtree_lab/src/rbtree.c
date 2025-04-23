@@ -3,52 +3,76 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// ========== debug ==========
-void print_rb_tree(const rbtree *t, node_t *nowNode)
+rbtree *new_rbtree(void)
 {
-  if (nowNode == t->nil)
+  rbtree *p = (rbtree *)calloc(1, sizeof(rbtree));
+
+  // nil 노드 할당
+  node_t *nil = (node_t *)malloc(sizeof(node_t));
+
+  if (nil == NULL) // 할당 실패
   {
-    return;
+    free(p);
+    return NULL;
   }
-  else
-  {
-    const char *color_names[] = {"RED", "BLACK"};
-    printf("my: %d ", nowNode->key);
-    printf("color: %s ", color_names[nowNode->color]);
-    if (nowNode->left != NULL)
-    {
-      printf("left: %d ", nowNode->left->key);
-    }
-    if (nowNode->right != NULL)
-    {
-      printf("right: %d ", nowNode->right->key);
-    }
-    printf("//");
-    print_rb_tree(t, nowNode->left);
-    print_rb_tree(t, nowNode->right);
-  }
+
+  // nil 초기화
+  nil->color = RBTREE_BLACK;
+  nil->left = nil->right = nil->parent = nil;
+  p->nil = nil;
+
+  // root 초기화
+  p->root = nil;
+
+  return p;
 }
-// ========== debug ==========
+
+void delete_nodes(rbtree *t, node_t *n)
+{
+  // 후위순회로 삭제
+  if (n == t->nil)
+    return;
+  delete_nodes(t, n->left);
+  delete_nodes(t, n->right);
+  free(n); // 루트까지
+}
+
+void delete_rbtree(rbtree *t)
+{
+  // 실제 노드 free
+  delete_nodes(t, t->root);
+
+  // 구조체 free
+  free(t->nil);
+  free(t);
+}
 
 // ------ Rotation function ------
 void left_rotate(rbtree *T, node_t *x)
 {
   node_t *y = x->right;
-  x->right = y->left;
 
+  // 1. 관련 자식 노드 재연결
   if (y->left != T->nil)
   {
+    x->right = y->left;
     y->left->parent = x;
   }
-  y->parent = x->parent;
-
-  if (x->parent == T->nil)
-    T->root = y;
-  else if (x->parent->left == x)
-    x->parent->left = y;
   else
+  {
+    x->right = T->nil;
+  }
+
+  // 2. 부모 노드 재연결
+  y->parent = x->parent;
+  if (x->parent == T->nil) // root 일 때
+    T->root = y;
+  else if (x->parent->left == x) // left child 일 때
+    x->parent->left = y;
+  else // right child 일 때
     x->parent->right = y;
 
+  // 3. 당사자들 재연결
   y->left = x;
   x->parent = y;
 }
@@ -56,21 +80,28 @@ void left_rotate(rbtree *T, node_t *x)
 void right_rotate(rbtree *T, node_t *x)
 {
   node_t *y = x->left;
-  x->left = y->right;
 
+  // 1. 관련 자식 노드 재연결
   if (y->right != T->nil)
   {
+    x->left = y->right;
     y->right->parent = x;
   }
-  y->parent = x->parent;
-
-  if (x->parent == T->nil)
-    T->root = y;
-  else if (x->parent->left == x)
-    x->parent->left = y;
   else
-    x->parent->right = y;
+  {
+    x->left = T->nil;
+  }
 
+  // 2. 부모 노드 재연결
+  y->parent = x->parent;
+  if (x->parent == T->nil) // x가 루트일 때
+    T->root = y;
+  else if (x->parent->right == x) // x가 right child일 때
+    x->parent->right = y;
+  else
+    x->parent->left = y; // x가 left child일 때
+
+  // 3. 당사자들 재연결
   y->right = x;
   x->parent = y;
 }
@@ -78,11 +109,12 @@ void right_rotate(rbtree *T, node_t *x)
 // ------ insert fixup function ------
 void insert_fixup(rbtree *t, node_t *x)
 {
+  node_t *u; // 삼촌 노드
+  node_t *p; // 부모 노드
+
   while (x->parent->color == RBTREE_RED)
   {
-    node_t *p = x->parent;
-    node_t *u;
-
+    p = x->parent;
     if (p == p->parent->left) // 부모가 left child
     {
       u = p->parent->right;       // 삼촌 노드
@@ -97,8 +129,9 @@ void insert_fixup(rbtree *t, node_t *x)
       {
         if (p->right == x) // case 5: 꺾인 형태
         {
-          x = p; // node update
+          x = p; // 펴주고 새로운 x를 기준으로 case 6을 검사
           left_rotate(t, x);
+          p = x->parent; // case 6으로 이어지는 과정에서 p를 재사용
         }
 
         // case 6 : 일자 형태
@@ -123,8 +156,9 @@ void insert_fixup(rbtree *t, node_t *x)
       {
         if (p->left == x) // case 5: 꺾인 형태
         {
-          x = p; // node update
+          x = p; // 펴주고 새로운 x를 기준으로 case 6을 검사
           right_rotate(t, x);
+          p = x->parent; // case 6으로 이어지는 과정에서 p를 재사용
         }
 
         // case 6 : 일자 형태
@@ -136,145 +170,6 @@ void insert_fixup(rbtree *t, node_t *x)
     }
   }
   t->root->color = RBTREE_BLACK; // case 1 루트 조건으로 while문을 탈출했을 때
-}
-
-// ------ Transplant function(u <- v) ------
-void transplant(rbtree *t, node_t *u, node_t *v)
-{
-  if (u->parent == t->nil) // root일 때
-                           // if (t->root == u) // root일 때
-    t->root = v;
-  else if (u == u->parent->left)
-    u->parent->left = v;
-  else
-    u->parent->right = v;
-  v->parent = u->parent;
-}
-
-// ------ Find minimum function ------
-node_t *find_min(rbtree *t, node_t *x)
-{
-  while (x->left != t->nil)
-  {
-    x = x->left;
-  }
-
-  return x;
-}
-
-// ------ Delete fixup function ------
-void delete_fixup(rbtree *t, node_t *x)
-{
-  while (x != t->root && x->color == RBTREE_BLACK)
-  {
-    node_t *y; // 형제 노드
-
-    if (x == x->parent->left) // x가 left child
-    {
-      y = x->parent->right;
-      if (y->color == RBTREE_RED) // case 1
-      {
-        y->color = RBTREE_BLACK;
-        x->parent->color = RBTREE_RED;
-        left_rotate(t, x->parent);
-        y = x->parent->right; // why?????????????
-      }
-      // why????????????? 왜 else if나, else가 아니고?
-      if (y->right->color == RBTREE_BLACK && y->left->color == RBTREE_BLACK) // case 2
-      {
-        y->color = RBTREE_RED;
-        // 속성에 위반되는 지(부모 노드가 red) 확인해야 함
-        x = x->parent;
-      }
-      else
-      {
-        if (y->right->color == RBTREE_BLACK) // case 3
-        {
-          y->left->color = RBTREE_BLACK;
-          y->color = RBTREE_RED;
-          right_rotate(t, y);
-          y = x->parent->right; // why?????????TT
-        }
-        y->color = x->parent->color; // case 4
-        x->parent->color = RBTREE_BLACK;
-        y->right->color = RBTREE_BLACK;
-        left_rotate(t, x->parent);
-        // break; // 완료
-        x = t->root;
-      }
-    }
-
-    // 좌우 반전
-    else // x가 right child
-    {
-      y = x->parent->left;
-      if (y->color == RBTREE_RED) // case 1
-      {
-        y->color = RBTREE_BLACK;
-        x->parent->color = RBTREE_RED;
-        right_rotate(t, x->parent);
-        y = x->parent->left;
-      }
-      // else
-      // {
-      if (y->right->color == RBTREE_BLACK && y->left->color == RBTREE_BLACK) // case 2
-      {
-        y->color = RBTREE_RED;
-        // 속성에 위반되는 지(부모 노드가 red) 확인해야 함
-        x = x->parent;
-      }
-      else
-      {
-        if (y->left->color == RBTREE_BLACK) // case 3
-        {
-          y->right->color = RBTREE_BLACK;
-          y->color = RBTREE_RED;
-          left_rotate(t, y);
-          y = x->parent->left; // why???????
-        }
-        y->color = x->parent->color; // case 4
-        x->parent->color = RBTREE_BLACK;
-        y->left->color = RBTREE_BLACK;
-        right_rotate(t, x->parent);
-        // break; // 완료
-        x = t->root;
-      }
-    }
-  }
-  // 루트로 while문을 탈출했을 때, 루트 색을 black으로 바꿔준다.
-  x->color = RBTREE_BLACK;
-}
-
-rbtree *new_rbtree(void)
-{
-  rbtree *p = (rbtree *)calloc(1, sizeof(rbtree));
-  // TODO: initialize struct if needed
-  p->nil = (node_t *)malloc(sizeof(node_t));
-  p->nil->color = RBTREE_BLACK;
-  p->nil->left = p->nil->right = p->nil->parent = p->nil;
-  p->root = p->nil;
-
-  return p;
-}
-
-void delete_nodes(rbtree *t, node_t *n)
-{
-  if (n == t->nil)
-    return;
-  delete_nodes(t, n->left);
-  delete_nodes(t, n->right);
-  free(n);
-}
-
-void delete_rbtree(rbtree *t)
-{
-  // TODO: reclaim the tree nodes's memory
-  // 실제 노드 free
-  delete_nodes(t, t->root);
-
-  // 구조체 free
-  free(t->nil);
-  free(t);
 }
 
 node_t *rbtree_insert(rbtree *t, const key_t key)
@@ -311,15 +206,11 @@ node_t *rbtree_insert(rbtree *t, const key_t key)
 
   insert_fixup(t, newNode);
 
-  // printf("추가된 값: %d \n", newNode->key);
-  // printf("\n-------------\n");
-  // print_rb_tree(t, t->root);
-  return t->root;
+  return newNode;
 }
 
 node_t *rbtree_find(const rbtree *t, const key_t key)
 {
-  // TODO: implement find
   node_t *x = t->root;
 
   while (x != t->nil)
@@ -336,7 +227,6 @@ node_t *rbtree_find(const rbtree *t, const key_t key)
 
 node_t *rbtree_min(const rbtree *t)
 {
-  // TODO: implement find
   node_t *minNode = t->root;
   while (minNode->left != t->nil)
   {
@@ -348,7 +238,6 @@ node_t *rbtree_min(const rbtree *t)
 
 node_t *rbtree_max(const rbtree *t)
 {
-  // TODO: implement find
   node_t *maxNode = t->root;
   while (maxNode->right != t->nil)
   {
@@ -358,14 +247,132 @@ node_t *rbtree_max(const rbtree *t)
   return maxNode;
 }
 
+// ------ Transplant function(u <- v) ------
+void transplant(rbtree *t, node_t *u, node_t *v)
+{
+  if (t->root == u) // root일 때
+    t->root = v;
+  else if (u == u->parent->left)
+    u->parent->left = v;
+  else
+    u->parent->right = v;
+  v->parent = u->parent;
+}
+
+// ------ Find minimum function ------
+node_t *find_min(rbtree *t, node_t *x)
+{
+  while (x->left != t->nil)
+  {
+    x = x->left;
+  }
+
+  return x;
+}
+
+// ------ Delete fixup function ------
+void delete_fixup(rbtree *t, node_t *x)
+{
+  while (x != t->root && x->color == RBTREE_BLACK)
+  {
+    node_t *y; // 형제 노드
+
+    if (x == x->parent->left) // x가 left child
+    {
+      y = x->parent->right;
+
+      // case 1
+      // : rotate로 인해 새로운 형제 노드가 black이 되어, case 2~4를 확인해준다.
+      if (y->color == RBTREE_RED)
+      {
+        y->color = RBTREE_BLACK;
+        x->parent->color = RBTREE_RED;
+        left_rotate(t, x->parent);
+        y = x->parent->right;
+      }
+
+      // case 2
+      // : 형제 노드가 black + 형제 노드의 두 자녀가 black
+      if (y->right->color == RBTREE_BLACK && y->left->color == RBTREE_BLACK)
+      {
+        y->color = RBTREE_RED;
+        x = x->parent; // 부모 노드로 extra black 위임(red-and-black or doubly black 처리)
+      }
+      else
+      {
+        // case 3
+        // : 형제 노드의 자녀 중 하나가 red이고, 그 연결 형태가 꺾인 형태인 경우
+        if (y->left->color == RBTREE_RED)
+        {
+          y->left->color = RBTREE_BLACK;
+          y->color = RBTREE_RED;
+          right_rotate(t, y);
+          y = x->parent->right; // rotate 이후에 형제 노드 업데이트
+        }
+        // case 4
+        // : 형제 노드의 자녀 중 하나가 red이고, 그 연결 형태가 일자 형태인 경우
+        y->color = x->parent->color;
+        x->parent->color = RBTREE_BLACK;
+        y->right->color = RBTREE_BLACK;
+        left_rotate(t, x->parent);
+        x = t->root;
+      }
+    }
+
+    // 좌우 반전
+    else // x가 right child
+    {
+      y = x->parent->left;
+
+      // case 1
+      // : rotate로 인해 새로운 형제 노드가 black이 되어, case 2~4를 확인해준다.
+      if (y->color == RBTREE_RED)
+      {
+        y->color = RBTREE_BLACK;
+        x->parent->color = RBTREE_RED;
+        right_rotate(t, x->parent);
+        y = x->parent->left;
+      }
+
+      // case 2
+      // 형제 노드가 black + 자식 모두 black
+      if (y->right->color == RBTREE_BLACK && y->left->color == RBTREE_BLACK)
+      {
+        y->color = RBTREE_RED;
+        x = x->parent; // 부모 노드로 extra black 위임(red-and-black or doubly black 처리)
+      }
+      else
+      {
+        // case 3
+        // : 형제 노드의 자녀 중 하나가 red이고, 그 연결 형태가 꺾인 형태인 경우
+        if (y->right->color == RBTREE_RED)
+        {
+          y->right->color = RBTREE_BLACK;
+          y->color = RBTREE_RED;
+          left_rotate(t, y);
+          y = x->parent->left; // rotate로 변경된 형제 노드를 업데이트 해줌
+        }
+        // case 4
+        // : 형제 노드의 자녀 중 하나가 red이고, 그 연결 형태가 일자 형태인 경우
+        y->color = x->parent->color;
+        x->parent->color = RBTREE_BLACK;
+        y->left->color = RBTREE_BLACK;
+        right_rotate(t, x->parent);
+        x = t->root;
+      }
+    }
+  }
+  // 루트 조건으로 while문을 탈출했을 때, 루트 색을 black으로 바꿔주기 위함이다.
+  x->color = RBTREE_BLACK;
+}
+
 int rbtree_erase(rbtree *t, node_t *p)
 {
-  // TODO: implement erase
-  node_t *x;     // 삭제하는 노드
-  node_t *y = p; // 대체되는 노드
+  node_t *x;     // 삭제되는 노드
+  node_t *y = p; // successor를 고려하는 경우, 대체되는 노드
   color_t original_color = y->color;
 
-  // 오른쪽 자식이 있는 경우
+  // 오른쪽 자식이 있는 경우(실제 자식이 없고 nil 노드만 있는 경우도 포함 → p를 삭제하기 때문에 대체되는 노드 업데이트 필수)
   if (p->left == t->nil)
   {
     x = p->right;
@@ -387,32 +394,29 @@ int rbtree_erase(rbtree *t, node_t *p)
     x = y->right; // 대체되는 노드의 자식에 extra black 부여
 
     if (y != p->right) // 바로 아래 노드가 아니라면
-    // if (p != y->parent) // 바로 아래 노드가 아니라면
     {
       // 대체 노드(successor)의 오른쪽 자식이 successor의 자리에 위치되도록
-      transplant(t, y, y->right);
+      transplant(t, y, y->right); // y.right -> y 이동
       // 대체 노드가 기존 노드와의 관계를 이어받도록
       y->right = p->right;
       y->right->parent = y;
     }
     else
-      x->parent = y;
-    transplant(t, p, y); // 삭제 노드의 위치에 대체 노드 이동
+    {
+      x->parent = y; // extra black 처리를 해줄 때, 부모 + 형제를 찾아갈 수 있도록 함
+    }
+    transplant(t, p, y); // y -> p 삭제 노드의 위치에 대체 노드 이동
     y->left = p->left;
     y->left->parent = y;
     y->color = p->color;
   }
 
   if (original_color == RBTREE_BLACK)
+  {
     delete_fixup(t, x); // 삭제된 노드의 대체 노드가 extra black을 가짐
+  }
 
-  // free
   free(p);
-  // if (y != p)
-  //   free(p);
-  // else
-  //   free(y);
-
   return 0;
 }
 
@@ -428,7 +432,6 @@ void inorder(node_t *x, const rbtree *t, key_t *arr, int *idx) // 왼 - 루 - �
 
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n)
 {
-  // TODO: implement to_array
   // 중위순회로 arr에 담기
   int idx = 0;
   inorder(t->root, t, arr, &idx);
