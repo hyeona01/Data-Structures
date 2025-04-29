@@ -78,9 +78,9 @@ static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void insert_free_block(void *bp);
 static void remove_free_block(void *bp);
-static bool is_valid(void *bp);
 
 /*
+// 디버깅을 위한 함수: free list를 출력함
 void print_free_list()
 {
     char *now_bp = free_listp;
@@ -101,7 +101,9 @@ void print_free_list()
     }
     printf("============== \n\n");
 }
-// void print_all_list()
+
+// 디버깅을 위한 함수: 전체 힙 영역을 출력함
+void print_all_list()
 {
     // initiate bp to epilogue bp
     char *now_bp = heap_listp;
@@ -207,9 +209,6 @@ void mm_free(void *ptr)
     PUT(HDRP(ptr), PACK(size, 0));
     PUT(FTRP(ptr), PACK(size, 0));
 
-    PRED(ptr) = NULL;
-    SUCC(ptr) = NULL;
-
     coalesce(ptr);
 }
 
@@ -253,15 +252,9 @@ static void *extend_heap(size_t words)
         return NULL;
     }
 
-    // printf("extend heap size: %ld\n", size);
     PUT(HDRP(bp), PACK(size, 0));         // 새 빈 블록의 헤더 초기화
     PUT(FTRP(bp), PACK(size, 0));         // 새 빈 블록의 푸터 초기화
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); // 새 에필로그 헤더 설정
-    // printf("extend heap setting: bp - %p / Header - %p / Footer - %p / next - %p \n", bp, HDRP(bp), FTRP(bp), NEXT_BLKP(bp));
-    // printf("현재 주소 : %p\n", bp);
-    // printf("(1) 이전 블록 페이로드 주소 : %p\n", PREV_BLKP(bp));
-    // printf("(2) 이전 블록 - footer: %p\n", FTRP(PREV_BLKP(bp)));
-    // printf("(3) 이전 블록 - size: %d\n", GET_SIZE(FTRP(PREV_BLKP(bp))));
 
     return coalesce(bp);
 }
@@ -303,9 +296,7 @@ static void *coalesce(void *bp)
         // printf("----- PREV_BLKP 가용 ----- \n");
         // printf("%d\n", GET_SIZE(FTRP(PREV_BLKP(bp))));
         remove_free_block(PREV_BLKP(bp));
-        // 수정: 이전 블록의 크기 정확히 계산
-        size_t prev_size = GET_SIZE(HDRP(PREV_BLKP(bp)));
-        size += prev_size;
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         bp = PREV_BLKP(bp);
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
@@ -316,10 +307,7 @@ static void *coalesce(void *bp)
         // printf("----- 양쪽 블록 가용 상태 ----- \n");
         remove_free_block(PREV_BLKP(bp));
         remove_free_block(NEXT_BLKP(bp));
-        // 수정: 이전 블록과 다음 블록의 크기 정확히 계산
-        size_t prev_size = GET_SIZE(HDRP(PREV_BLKP(bp)));
-        size_t next_size = GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        size += prev_size + next_size;
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
         bp = PREV_BLKP(bp);
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
@@ -340,20 +328,14 @@ void *find_fit(size_t asize)
 {
     // printf("----- find_fit start ----- \n");
     // print_free_list();
+    void *bp;
 
-    void *bp = free_listp;
-    void *start = bp;
-
-    while (bp != NULL && is_valid(bp))
+    // first fit
+    for (bp = free_listp; bp != NULL; bp = SUCC(bp))
     {
         if (asize <= GET_SIZE(HDRP(bp)))
         {
             return bp;
-        }
-        bp = SUCC(bp);
-        if (bp == start)
-        {
-            break;
         }
     }
     return NULL;
@@ -381,14 +363,14 @@ void place(void *bp, size_t asize)
         PUT(FTRP(bp), PACK(asize, 1));
 
         // 나머지는 free block으로 분할
-        void *remainder = NEXT_BLKP(bp); // 나중에 free block 합침(지연 연결)
+        bp = NEXT_BLKP(bp); // 나중에 free block 합침(지연 연결)
 
         // 블록 정보 업데이트
-        PUT(HDRP(remainder), PACK(csize - asize, 0));
-        PUT(FTRP(remainder), PACK(csize - asize, 0));
+        PUT(HDRP(bp), PACK(csize - asize, 0));
+        PUT(FTRP(bp), PACK(csize - asize, 0));
 
         // free list 업데이트
-        insert_free_block(remainder);
+        insert_free_block(bp);
 
         // printf("%p 할당 블록 분할함\n", bp);
         // print_all_list();
@@ -427,35 +409,34 @@ void remove_free_block(void *bp)
 
     // printf(" bp=%p, pred=%p, succ=%p\n", bp, PRED(bp), SUCC(bp));
 
-    if (is_valid(bp))
+    if (bp == free_listp) // 이 경우가 더 이해가 쉬움
+    {
+        free_listp = SUCC(bp);
+        if (free_listp != NULL)
+        {
+            PRED(free_listp) = NULL;
+        }
+    }
+    else
     {
         if (PRED(bp))
+        {
+
             SUCC(PRED(bp)) = SUCC(bp);
-        else
-            free_listp = SUCC(bp);
+        }
         if (SUCC(bp))
+        {
             PRED(SUCC(bp)) = PRED(bp);
-
-        PRED(bp) = NULL;
-        SUCC(bp) = NULL;
-        // printf("%p remove!\n", bp);
-        // printf("\n[삭제 후 free list]\n");
-        // print_free_list();
+        }
     }
-    else
-    {
-        // printf("힙 영역을 벗어났다!");
-    }
-}
 
-static bool is_valid(void *bp)
-{
-    char *lo = (char *)mem_heap_lo();
-    char *hi = (char *)mem_heap_hi();
-    char *p = (char *)bp;
-
-    if (p >= lo && p <= hi)
-        return true;
+    /*
+    // 위와 같은 코드 ver.2
+    if (PRED(bp))
+    SUCC(PRED(bp)) = SUCC(bp);
     else
-        return false;
+    free_listp = SUCC(bp);
+    if (SUCC(bp))
+    PRED(SUCC(bp)) = PRED(bp);
+    */
 }
