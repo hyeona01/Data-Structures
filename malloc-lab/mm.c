@@ -71,6 +71,7 @@ team_t team = {
 
 static void *heap_listp;        // Heap pointer for prologue block
 static void *free_listp = NULL; // LIFO 방식 explicit free list root
+static void *last_alloc;        // next fit 정책
 
 static void *coalesce(void *bp);
 static void *extend_heap(size_t words);
@@ -81,45 +82,45 @@ static void remove_free_block(void *bp);
 
 /*
 // 디버깅을 위한 함수: free list를 출력함
-void print_free_list()
+// void print_free_list()
 {
     char *now_bp = free_listp;
-    printf("\n[free list] =========== \n");
+    // printf("\n[free list] =========== \n");
     if (free_listp == NULL)
     {
-        printf("No list here\n");
+        // printf("No list here\n");
     }
     while (now_bp != NULL)
     // while (now_bp != NULL && is_valid(now_bp))
     {
-        printf("prev bp position: %p | ", PRED(now_bp));
-        printf("bp: %p, ", now_bp);
-        printf("bp size: %d, ", GET_SIZE(HDRP(now_bp)));
-        printf("bp alloc: %d |", GET_ALLOC(HDRP(now_bp)));
-        printf("next bp position: %p |\n", SUCC(now_bp));
+        // printf("prev bp position: %p | ", PRED(now_bp));
+        // printf("bp: %p, ", now_bp);
+        // printf("bp size: %d, ", GET_SIZE(HDRP(now_bp)));
+        // printf("bp alloc: %d |", GET_ALLOC(HDRP(now_bp)));
+        // printf("next bp position: %p |\n", SUCC(now_bp));
         now_bp = (char *)SUCC(now_bp);
     }
-    printf("============== \n\n");
+    // printf("============== \n\n");
 }
 
 // 디버깅을 위한 함수: 전체 힙 영역을 출력함
-void print_all_list()
+// void print_all_list()
 {
     // initiate bp to epilogue bp
     char *now_bp = heap_listp;
-    printf("\nall list ===============\n");
+    // printf("\nall list ===============\n");
     // if the header does not meet condition, update it
     while (GET_SIZE(HDRP(now_bp)) != 0)
     {
-        printf("address %p ", now_bp);
-        printf("size %d ", GET_SIZE(HDRP(now_bp)));
-        printf("allocated %d \n", GET_ALLOC(HDRP(now_bp)));
+        // printf("address %p ", now_bp);
+        // printf("size %d ", GET_SIZE(HDRP(now_bp)));
+        // printf("allocated %d \n", GET_ALLOC(HDRP(now_bp)));
         now_bp = NEXT_BLKP(now_bp);
     }
-    printf("address %p ", (now_bp));
-    printf("size %d ", GET_SIZE(HDRP(now_bp)));
-    printf("allocated %d\n", GET_ALLOC(HDRP(now_bp)));
-    printf("=========== \n\n");
+    // printf("address %p ", (now_bp));
+    // printf("size %d ", GET_SIZE(HDRP(now_bp)));
+    // printf("allocated %d\n", GET_ALLOC(HDRP(now_bp)));
+    // printf("=========== \n\n");
 }
 */
 
@@ -131,7 +132,6 @@ int mm_init(void)
 {
     // printf("\ninit start\n");
     /* 힙 영역의 기본 구조를 위한 4 워드(4*WSIZE 바이트) 확보 - 정렬패딩, 프롤로그 헤더/푸터, 에필로그 헤더 */
-
     if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
     {
         return -1;
@@ -151,6 +151,7 @@ int mm_init(void)
         return -1;
     }
     // printf("init success\n");
+    last_alloc = free_listp; // 힙 확장 성공시, next fit 포인터 변경
     return 0;
 }
 
@@ -326,18 +327,30 @@ static void *coalesce(void *bp)
  */
 void *find_fit(size_t asize)
 {
-    // printf("----- find_fit start ----- \n");
+    // printf("----- find_fit start %p ----- \n", last_alloc);
     // print_free_list();
-    void *bp;
 
-    // first fit
-    for (bp = free_listp; bp != NULL; bp = SUCC(bp))
+    if (free_listp == NULL)
+        return NULL;
+
+    void *start = last_alloc ? last_alloc : free_listp;
+    void *bp = start;
+
+    if (bp == NULL)
+        bp = free_listp;
+
+    do
     {
         if (asize <= GET_SIZE(HDRP(bp)))
         {
+            last_alloc = bp;
             return bp;
         }
-    }
+        bp = SUCC(bp);
+        if (bp == NULL)
+            bp = free_listp;
+    } while (bp != start);
+
     return NULL;
 }
 
@@ -372,6 +385,8 @@ void place(void *bp, size_t asize)
         // free list 업데이트
         insert_free_block(bp);
 
+        last_alloc = bp; // 분할된 블록을 next fit 포인터 지정
+
         // printf("%p 할당 블록 분할함\n", bp);
         // print_all_list();
     }
@@ -380,6 +395,9 @@ void place(void *bp, size_t asize)
         // 분할 불가 - 잔여 block이 넉넉치 않고 fit함
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+
+        last_alloc = (SUCC(bp) != NULL) ? SUCC(bp) : free_listp; // 할당된 블록의 다음 블록으로 next fit 포인터 지정
+        // last_alloc = SUCC(bp); // 할당된 블록의 다음 블록으로 next fit 포인터 지정
 
         // printf("%p %s\n", bp, "할당 블록 분할 없음\n");
         // print_all_list();
@@ -391,6 +409,7 @@ void insert_free_block(void *bp)
 {
     // printf("----- insert_free_block start ----- \n");
     // print_free_list();
+
     PRED(bp) = NULL;
     SUCC(bp) = free_listp;
     if (free_listp)
@@ -409,6 +428,11 @@ void remove_free_block(void *bp)
 
     // printf(" bp=%p, pred=%p, succ=%p\n", bp, PRED(bp), SUCC(bp));
 
+    if (bp == last_alloc)
+    {
+        last_alloc = SUCC(bp);
+    }
+
     if (bp == free_listp) // 이 경우가 더 이해가 쉬움
     {
         free_listp = SUCC(bp);
@@ -421,7 +445,6 @@ void remove_free_block(void *bp)
     {
         if (PRED(bp))
         {
-
             SUCC(PRED(bp)) = SUCC(bp);
         }
         if (SUCC(bp))
