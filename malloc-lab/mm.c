@@ -69,7 +69,7 @@ team_t team = {
 #define PRED(bp) (*(void **)(bp))
 #define SUCC(bp) (*(void **)((char *)(bp) + WSIZE)) // bp에서 1 word(pointer size) 만큼 이동
 
-#define MINBLOCKSIZE 24
+#define MINBLOCKSIZE 32
 #define LISTLIMIT 20
 static char *seg_free_lists[LISTLIMIT];
 
@@ -215,18 +215,55 @@ void mm_free(void *ptr)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
+    if (ptr == NULL)
+        return mm_malloc(size);
+    if (size == 0)
+    {
+        mm_free(ptr);
+        return NULL;
+    }
 
-    newptr = mm_malloc(size);
+    size_t old_size = GET_SIZE(HDRP(ptr));
+    size_t new_size = ALIGN(size + DSIZE);
+
+    // Shrinking
+    if (new_size <= old_size)
+    {
+        if (old_size - new_size >= MINBLOCKSIZE)
+        {
+            PUT(HDRP(ptr), PACK(new_size, 1));
+            PUT(FTRP(ptr), PACK(new_size, 1));
+
+            void *next = NEXT_BLKP(ptr);
+            PUT(HDRP(next), PACK(old_size - new_size, 0));
+            PUT(FTRP(next), PACK(old_size - new_size, 0));
+            coalesce(next);
+        }
+        return ptr;
+    }
+
+    // Try merging with next free block
+    void *next = NEXT_BLKP(ptr);
+    size_t next_size = GET_SIZE(HDRP(next));
+    if (next_size > 0 && !GET_ALLOC(HDRP(next)) && (old_size + next_size >= new_size))
+    {
+        remove_free_block(next);
+        size_t total_size = old_size + next_size;
+        PUT(HDRP(ptr), PACK(total_size, 1));
+        PUT(FTRP(ptr), PACK(total_size, 1));
+        return ptr;
+    }
+
+    // Fallback: allocate new and copy
+    void *newptr = mm_malloc(size);
     if (newptr == NULL)
         return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+
+    size_t copySize = old_size - DSIZE;
     if (size < copySize)
         copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
+    memcpy(newptr, ptr, copySize);
+    mm_free(ptr);
     return newptr;
 }
 
@@ -322,19 +359,29 @@ void *find_fit(size_t asize)
 {
     int idx = get_list_index(asize);
     void *bp;
+    void *best_fit = NULL;
+    size_t best_size = (size_t)-1;
 
-    for (int i = idx; i < LISTLIMIT; ++i)
+    for (int i = idx; i < LISTLIMIT; ++i) // 요청한 크기 이상의 블록 리스트 찾기(first fit)
     {
         bp = seg_free_lists[i];
 
         while (bp != NULL)
         {
-            if (asize <= GET_SIZE(HDRP(bp)))
+            // if (asize <= GET_SIZE(HDRP(bp)))
+            size_t bsize = GET_SIZE(HDRP(bp));
+            if (asize <= bsize && bsize < best_size)
             {
-                return bp;
+                // return bp;
+                best_fit = bp;
+                best_size = bsize;
+                if (bsize == asize) // 크기가 정확히 일치함
+                    return bp;
             }
             bp = SUCC(bp);
         }
+        if (best_fit != NULL)
+            return best_fit;
     }
 
     return NULL;
@@ -348,15 +395,10 @@ void *find_fit(size_t asize)
  */
 void place(void *bp, size_t asize)
 {
-    // printf("----- place start ----- \n");
-    // print_all_list();
-
     size_t csize = GET_SIZE(HDRP(bp)); // csize: free block 크기
     remove_free_block(bp);
 
-    // printf("place: csize=%zu, asize=%zu, rem=%zu\n", csize, asize, csize - asize);
-
-    if ((csize - asize) >= (MINBLOCKSIZE)) // 남는 블록이 free block 최소 크기(24B->정렬 32B)보다 크다면
+    if ((csize - asize) >= MINBLOCKSIZE)
     {
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
@@ -370,18 +412,12 @@ void place(void *bp, size_t asize)
 
         // free list 업데이트
         insert_free_block(bp);
-
-        // printf("%p 할당 블록 분할함\n", bp);
-        // print_all_list();
     }
     else
     {
         // 분할 불가 - 잔여 block이 넉넉치 않고 fit함
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
-
-        // printf("%p %s\n", bp, "할당 블록 분할 없음\n");
-        // print_all_list();
     }
 }
 
