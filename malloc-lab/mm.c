@@ -333,23 +333,20 @@ void *find_fit(size_t asize)
     if (free_listp == NULL)
         return NULL;
 
+    // 만약, last_alloc이 없다면 free_listp 부터 first fit 탐색한다.
     void *start = last_alloc ? last_alloc : free_listp;
     void *bp = start;
-
-    if (bp == NULL)
-        bp = free_listp;
 
     do
     {
         if (asize <= GET_SIZE(HDRP(bp)))
         {
-            last_alloc = bp;
             return bp;
         }
         bp = SUCC(bp);
-        if (bp == NULL)
+        if (bp == NULL) // 끝에 도달하면 root로 다시 설정
             bp = free_listp;
-    } while (bp != start);
+    } while (bp != start); // 시작 노드와 같아지면 종료
 
     return NULL;
 }
@@ -404,17 +401,48 @@ void place(void *bp, size_t asize)
     }
 }
 
-// free block 노드 삽입(LIFO)
+// free block 노드 삽입(주소순)
 void insert_free_block(void *bp)
 {
     // printf("----- insert_free_block start ----- \n");
     // print_free_list();
 
-    PRED(bp) = NULL;
-    SUCC(bp) = free_listp;
-    if (free_listp)
-        PRED(free_listp) = bp;
-    free_listp = bp;
+    if (free_listp == NULL)
+    {
+        PRED(bp) = NULL;
+        SUCC(bp) = NULL;
+
+        free_listp = bp;
+        return;
+    }
+
+    void *curr = free_listp;
+    void *prev = NULL;
+
+    while (curr != NULL && bp > curr)
+    {
+        prev = curr;
+        curr = SUCC(curr);
+    }
+
+    PRED(bp) = prev;
+    SUCC(bp) = curr;
+
+    // 이전 노드가 있다면
+    if (prev != NULL)
+    {
+        SUCC(prev) = bp;
+    }
+    else
+    {
+        free_listp = bp;
+    }
+
+    // 다음 노드가 있다면
+    if (curr != NULL)
+    {
+        PRED(curr) = bp;
+    }
     // printf("%p insert!\n", bp);
     // print_free_list();
 }
