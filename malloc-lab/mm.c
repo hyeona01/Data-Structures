@@ -385,19 +385,47 @@ void place(void *bp, size_t asize)
     }
 }
 
-// free block 노드 삽입(LIFO)
+// free block 노드 삽입(주소순)
 void insert_free_block(void *bp)
 {
     int idx = get_list_index(GET_SIZE(HDRP(bp))); // 사이즈에 맞는 인덱스 찾기
     char *head = seg_free_lists[idx];             // 해당 인덱스의 포인터
 
-    if (head != NULL)
-        PRED(head) = bp;
+    if (head == NULL)
+    {
+        PRED(bp) = NULL;
+        SUCC(bp) = NULL;
+        seg_free_lists[idx] = bp;
+        return;
+    }
 
-    SUCC(bp) = head;
-    PRED(bp) = NULL;
+    void *curr = head;
+    void *prev = NULL;
 
-    seg_free_lists[idx] = bp;
+    while (curr != NULL && bp > curr)
+    {
+        prev = curr;
+        curr = SUCC(curr);
+    }
+
+    PRED(bp) = prev;
+    SUCC(bp) = curr;
+
+    // 이전 노드가 있다면
+    if (prev != NULL)
+    {
+        SUCC(prev) = bp;
+    }
+    else
+    {
+        seg_free_lists[idx] = bp;
+    }
+
+    // 다음 노드가 있다면
+    if (curr != NULL)
+    {
+        PRED(curr) = bp;
+    }
 }
 
 // free block 노드 삭제
